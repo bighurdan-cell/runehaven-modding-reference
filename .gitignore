@@ -1,0 +1,33 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Local development
+*.log
+*.tmp
+.local/
+
+# Player logs (in case they get accidentally copied during debugging)
+Player.log
+Player-prev.log
+saves.dat
+
+# Decompile artifacts (don't commit these, they're regenerated)
+cpp2il_out/
+runehaven_decomp/
+*.dll-resources.dat
+
+# Build outputs
+dist/
+build/
+
+# Environment
+.env
+.env.local
