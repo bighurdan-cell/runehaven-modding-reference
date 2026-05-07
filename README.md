@@ -10,18 +10,18 @@ A schema for every modpack category (items, mobs, props, projectiles, modifiers,
 
 ## Quick navigation
 
-- [Mod folder structure and `mod.json`](docs/modding-reference.md#modjson-modpack)
-- [Items, weapons, runes-as-items](docs/modding-reference.md#itemsjson-item)
-- [Mobs and AI archetypes](docs/modding-reference.md#mobsjson-mob)
-- [Props and interactive types](docs/modding-reference.md#propsjson-prop)
-- [Projectiles](docs/modding-reference.md#projectilesjson-projectile)
-- [Item modifiers](docs/modding-reference.md#modifiersjson-itemmodifier)
-- [Biomes, themes, worlds, zones](docs/modding-reference.md#biomesjson-biome2)
-- [The `.node` room format](docs/modding-reference.md#nodesnode-datafile-format)
-- [The 33-class rune effect registry](docs/modding-reference.md#rune-effect-registry-33-classes-partial-item-availability)
+- [Mod folder structure and `mod.json`](docs/modding-reference.md#modjson)
+- [Items, weapons, runes-as-items](docs/modding-reference.md#itemsjson)
+- [Mobs and AI archetypes](docs/modding-reference.md#mobsjson)
+- [Props and interactive types](docs/modding-reference.md#propsjson)
+- [Projectiles](docs/modding-reference.md#projectilesjson)
+- [Item modifiers](docs/modding-reference.md#modifiersjson)
+- [Biomes, themes, worlds, zones](docs/modding-reference.md#biomesjson)
+- [The `.node` room format](docs/modding-reference.md#nodesnode)
+- [Rune effect registry](docs/modding-reference.md#rune-effect-registry)
 - [Console commands](docs/modding-reference.md#console-commands-f11)
 - [Vanilla asset registry](docs/modding-reference.md#vanilla-asset-registry)
-- [What's NOT moddable without code](docs/modding-reference.md#what-is-not-moddable-without-code-bepinex)
+- [Beyond data modding](docs/modding-reference.md#beyond-data-modding)
 
 ## How this was compiled
 

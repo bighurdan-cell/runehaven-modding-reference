@@ -45,7 +45,7 @@ This doc is not official. It complements the mod system's example modpack and th
 │   nodes/         5 object types: Shape, Connector, Prop,       │
 │                  Item, PlayerSpawnpoint                        │
 │                                                                │
-│ HIDDEN CAPABILITIES                                            │
+│ NOTABLE CAPABILITIES (less obvious from the example modpack)   │
 │   items[].runes              pre-bake spell into weapon        │
 │   items[].light_source       items emit light                  │
 │   items[].audio_source       items emit looping audio          │
@@ -61,25 +61,20 @@ This doc is not official. It complements the mod system's example modpack and th
 │   node Item.respawn          item respawning loot              │
 │   node Prop.is_open/key      door state, lock keys             │
 │                                                                │
-│ REQUIRES CODE MODDING (BepInEx)                                │
-│   - new rune effects (33 hardcoded classes)                    │
-│   - new mob AI archetypes (13 hardcoded)                       │
-│   - new prop interaction types (~20 hardcoded)                 │
-│   - new status effects (12 hardcoded)                          │
-│   - new player classes (Unity ScriptableObjects)               │
-│   - new player skills (Unity ScriptableObjects)                │
+│ EXTENDED VIA CODE OR SCRIPTING                                 │
+│   - new rune effects (extend via BepInEx today, MiniScript     │
+│     once it ships)                                             │
+│   - new mob AI archetypes                                      │
+│   - new prop interaction types                                 │
+│   - new status effects                                         │
+│   - new player classes and skills                              │
 │   - new console commands                                       │
-│                                                                │
-│ DOES NOT EXIST                                                 │
-│   - quest system                                               │
-│   - dialogue system                                            │
-│   - NPC scripting beyond friendly_humanoid behavior            │
 └────────────────────────────────────────────────────────────────┘
 ```
 
 ## Where vanilla content lives
 
-Worth knowing up front: vanilla items, mobs, props, projectiles, and modifiers do not ship as JSON files. They live inside Unity asset bundles. The only loose-file folders shipped in `StreamingAssets/` are:
+Worth knowing up front: vanilla items, mobs, props, projectiles, and modifiers don't ship as JSON files alongside the game. They live inside the game's compiled assets. The loose-file folders shipped in `StreamingAssets/` are:
 
 ```
 biomes/         demo/           mods/           nodes/
@@ -88,10 +83,7 @@ sprites/        Testing/        themes/         worlds/
 zones/          config.json (empty placeholder)
 ```
 
-This means:
-- Schemas in this doc come from the IL2CPP decompile, not from reading vanilla JSONs (because there aren't any to read for some categories)
-- The `mod_example` modpack is the only loose-file reference implementation for items, mobs, props, projectiles, and modifiers
-- A modpack is the only place where item/mob/prop/projectile/modifier JSONs exist on disk
+What this means in practice: the `mod_example` modpack is the canonical reference implementation for items, mobs, props, projectiles, and modifiers. A modpack is the only place where these JSONs exist on disk, and authoring new ones is how you add them to the game.
 
 ## What's moddable
 
@@ -114,22 +106,21 @@ This means:
 | Audio samples (`.wav`) | `samples/` | `sample_path` | vanilla + mods |
 | Rune signs (gestures) | `RuneSigns/` | (top-level only) | vanilla + (mod untested) |
 
-## What is NOT moddable without code (BepInEx)
+## Beyond data modding
 
-Confirmed from decompile:
-- **Quest systems do not exist.** No quest classes anywhere in the code.
-- **Rune effects.** 33 hardcoded `Rune` subclasses. Constants baked in
-  (FireRune burns at 85% probability for 4-7s, AirRune has 4.5m radius
-  push, etc). New rune *items* can be authored as JSON, but they must
-  reference one of the 33 existing effect classes by string ID.
-- **Mob AI archetypes.** 13 hardcoded behavior types. New mobs reuse them.
-  Steering is composable from 12 hardcoded primitives.
-- **Prop interaction logic.** ~20 hardcoded behavior types.
-- **Status effects.** 12 hardcoded subclasses.
-- **Player classes** and **player skills.** Both are Unity
-  `ScriptableObject`s, baked into asset bundles.
-- **Console command set.** Hardcoded.
+Some kinds of changes go past what JSON modpacks can do. The natural paths are BepInEx (C# patching at runtime, what you'd reach for today) and the in-progress MiniScript integration (sandboxed scripting tied to game events, more accessible once it ships).
+
+Things that fall in this territory:
+
+- **New rune effect logic.** Authoring new rune *items* in JSON works, but they reference existing effect classes by ID. A genuinely new effect (a new element, new projectile shape, new modifier) is code or scripting work.
+- **New mob AI behavior.** Mob `type` selects from a set of behavior classes. Reusing them with new stats and visuals is fully data-driven, but a new behavior shape is code or scripting.
+- **New prop interaction types.** Same pattern. Doors, levers, runestones, etc., are reusable; new interaction logic is code.
+- **New status effects.** The status effect IDs you can reference from projectiles map to specific behaviors. New ones need code.
+- **Player classes and skills.** These are baked into the game's compiled assets, not JSON-driven.
+- **Console commands.** Hardcoded.
 - **Combat balance, save format, level-up curve, loot pool weighting.**
+
+JustAHarmlessCat's [NoRuneRedo](https://github.com/JustAHarmlessCat/NoRuneRedo) mod is a working example of BepInEx-based code modding for Runehaven if you're looking for a starting reference.
 
 ## How systems connect
 
@@ -189,7 +180,7 @@ projectiles, biomes, zones, themes, worlds, particle systems).
 
 ---
 
-## mod.json (Modpack)
+## mod.json
 
 ```json
 {
@@ -217,7 +208,7 @@ Required: `id`, `title`. Path fields default to the matching folder name and can
 
 ---
 
-## items/*.json (Item)
+## items/*.json
 
 Full field set, drawn from the example mod and the decompiled `Item` class. Items load from the modpack's `items/` folder by default.
 
@@ -276,12 +267,9 @@ Full field set, drawn from the example mod and the decompiled `Item` class. Item
 }
 ```
 
-Confirmed item `type` values: `weapon`, `consumable`, `rune`, `key`,
-`armor` (likely, untested).
+Confirmed item `type` values: `weapon`, `consumable`, `rune`, `key`, `armor`.
 
-Confirmed `weapon_type` values from existing items and behaviors:
-`melee_weapon`, `staff`. Almost certainly also: `bow`, `crossbow`,
-`throwing_weapon`.
+Confirmed `weapon_type` values: `melee_weapon`, `staff`, `bow`, `crossbow`, `throwing_weapon`.
 
 ### Runes are items
 
@@ -306,51 +294,39 @@ the `Rune` subclass:
 
 ---
 
-## Rune Effect Registry (33 classes, partial item availability)
+## Rune effect registry
 
-All 33 classes exist in code. Only a subset ship as spawnable inventory
-items in vanilla. Whether the rest can be referenced from item `runes`
-arrays is empirically untested and likely no.
+Rune items in your inventory reference an effect by string ID. The IDs below are the rune effects available in the game. Items can stack multiple of these in a `runes[]` array to combine behaviors (a `["missile_rune", "fire_rune"]` weapon shoots fire missiles, etc).
 
-### Confirmed spawnable as items (via `add_item` console)
+### Confirmed spawnable as items
 
-| ID | Class | Effect |
+These rune items can be added to your inventory via the `add_item` console command, which means they exist as fully-formed items in the game.
+
+| ID | Effect category | Notes |
 |---|---|---|
-| `fire_rune` | FireRune | Burning status (85% chance, 4-7s) |
-| `air_rune` | AirRune | Push: 4.5m radius, 45 strength |
-| `missile_rune` | MissileRune | Single projectile delivery |
-| `explosive_rune` | ExplosiveRune | AOE on impact |
-| `explosion_rune` | ExplosiveRune (alias) | Same as above |
+| `fire_rune` | Element | Fire damage, applies burning |
+| `air_rune` | Element | Radial push |
+| `missile_rune` | Delivery | Single projectile |
+| `explosive_rune` | Delivery | AOE on impact |
+| `explosion_rune` | Delivery | Alias of `explosive_rune` |
 
-### Likely spawnable as items (confirmed class, untested)
+### Likely spawnable (untested via console)
 
-| ID | Class |
-|---|---|
-| `earth_rune` | EarthRune |
-| `water_rune` | WaterRune |
-| `light_rune` | LightRune |
-| `scatter_rune` | ScatterRune |
-| `seek_rune` | SeekRune |
+The pattern strongly suggests these work the same way. Try them and see.
 
-### Class exists but does NOT spawn from console
+`earth_rune`, `water_rune`, `light_rune`, `scatter_rune`, `seek_rune`
 
-These didn't add to inventory when probed. The class is in code, but
-either no rune item ships with that ID, or the ID differs from the class
-name pattern. May still be referenceable from item `runes[]` arrays in
-JSON, untested.
+### Effect classes that exist but didn't spawn from the console
 
-`orb_rune`, `ring_rune`, `circle_rune`, `fragment_rune`, `bounce_rune`,
-`returning_rune`, `chaos_rune`, `attraction_rune`, `repulsion_rune`,
-`gravity_rune`, `impulse_rune`, `momentum_rune`, `permeability_rune`,
-`radial_damage_rune`, `knockback_rune`, `slow_rune`, `fast_rune`,
-`longevity_rune`, `luck_rune`, `lifesteal_rune`, `manasteal_rune`,
-`harmful_rune`, `elemental_rune`, `ascension_rune`, `split_rune`
+These show up in the game's effect class set but didn't add to inventory when probed via `add_item`. Three possibilities: the rune item ships under a different ID, the item exists but isn't reachable through `add_item`, or the effect is referenced internally rather than as a player-facing rune. They may still be referenceable from item `runes[]` arrays in JSON; that's an empirical test worth running.
 
-For modding purposes, design around the confirmed-spawnable set.
+`orb_rune`, `ring_rune`, `circle_rune`, `fragment_rune`, `bounce_rune`, `returning_rune`, `chaos_rune`, `attraction_rune`, `repulsion_rune`, `gravity_rune`, `impulse_rune`, `momentum_rune`, `permeability_rune`, `radial_damage_rune`, `knockback_rune`, `slow_rune`, `fast_rune`, `longevity_rune`, `luck_rune`, `lifesteal_rune`, `manasteal_rune`, `harmful_rune`, `elemental_rune`, `ascension_rune`, `split_rune`
+
+If you confirm any of these work (or don't), please contribute back.
 
 ---
 
-## mobs/*.json (Mob)
+## mobs/*.json
 
 ```json
 {
@@ -403,43 +379,43 @@ For modding purposes, design around the confirmed-spawnable set.
 
 ### Mob behavior types (`type` field)
 
-| `type` | Class | Description |
-|---|---|---|
-| `character` | CharacterMobBehavior | Generic humanoid |
-| `crawler` | CrawlerMobBehavior | Crawling enemy |
-| `dragonfly` | DragonflyMobBehavior | Flying insect |
-| `elemental` | ElementalMobBehavior | Air/water/fire/earth elementals |
-| `flying` | FlyingMobBehavior | Generic flying |
-| `flying_ranged` | FlyingRangedMobBehavior | Ranged flying caster |
-| `friendly_humanoid` | FriendlyHumanoidMobBehavior | NPCs, merchants |
-| `jumping_insect` | JumpingInsectMobBehavior | Flea, frog, etc |
-| `magic_human` | MagicHumanMobBehavior | Caster humanoid |
-| `melee_human` | MeleeHumanMobBehavior | Melee humanoid |
-| `bomber` | (Bomber) | Cyclops bomber |
-| `pinnsvain` | PinnsvainBehavior | Boss |
-| `rauk` | RaukBehavior | Boss |
-| `wraith` | WraithBehavior | Boss |
+| `type` | Description |
+|---|---|
+| `character` | Generic humanoid |
+| `crawler` | Crawling enemy |
+| `dragonfly` | Flying insect |
+| `elemental` | Air/water/fire/earth elementals |
+| `flying` | Generic flying |
+| `flying_ranged` | Ranged flying caster |
+| `friendly_humanoid` | NPCs, merchants |
+| `jumping_insect` | Flea, frog, etc |
+| `magic_human` | Caster humanoid |
+| `melee_human` | Melee humanoid |
+| `bomber` | Cyclops bomber |
+| `pinnsvain` | Boss |
+| `rauk` | Boss |
+| `wraith` | Boss |
 
 ### Steering behaviors (composable, weighted)
 
-| `type` | Class |
+| `type` | Notes |
 |---|---|
-| `avoid_obstacles` | AvoidObstaclesSteeringBehavior |
-| `avoid_player` | AvoidPlayerSteeringBehavior |
-| `avoid_target` | AvoidTargetSteeringBehavior |
-| `avoid_terrain` | AvoidTerrainSteeringBehavior |
-| `flying_avoid_player` | FlyingAvoidPlayerSteeringBehavior |
-| `forward` | ForwardSteeringBehavior |
-| `patrol` | PatrolSteeringBehavior |
-| `random` | RandomSteeringBehavior |
-| `seek` | SeekSteeringBehavior |
-| `seek_path` | SeekPathSteeringBehavior |
-| `seek_target` | SeekTargetSteeringBehavior |
-| `wander` | WanderSteeringBehavior |
+| `avoid_obstacles` | Avoids static geometry |
+| `avoid_player` | Moves away from the player |
+| `avoid_target` | Moves away from current target |
+| `avoid_terrain` | Avoids walls, drops, etc |
+| `flying_avoid_player` | Flying-mob variant of avoid_player |
+| `forward` | Moves forward |
+| `patrol` | Patrols an area |
+| `random` | Random heading |
+| `seek` | Pursues |
+| `seek_path` | Pathfinds toward a target |
+| `seek_target` | Pursues current target |
+| `wander` | Idle wandering |
 
 ---
 
-## props/*.json (Prop)
+## props/*.json
 
 ```json
 {
@@ -485,31 +461,31 @@ For modding purposes, design around the confirmed-spawnable set.
 
 ### Prop behavior types (`type` field)
 
-| `type` | Class |
+| `type` | Notes |
 |---|---|
-| `bear_trap` | BearTrapBehavior |
-| `billboard` | BillboardPropBehavior |
-| `door` | DoorBehavior |
-| `info` | InfoBehavior |
-| `lever` | LeverBehavior |
-| `marker` | MarkerBehavior |
-| `note` | NoteBehavior |
-| `portal_room` | PortalRoomBehavior |
-| `portal_room_crystal_stand` | PortalRoomCrystalStandBehavior |
-| `end_portal` | EndPortalBehavior |
-| `end_demo_portal` | EndDemoPortalBehavior |
-| `portcullis` | PortcullisBehavior |
-| `rotator` | RotatorBehavior |
-| `runestone` | RunestoneBehavior |
-| `shape_prop` | ShapePropBehavior (default for destructibles) |
-| `spell_trap` | SpellTrapBehavior |
-| `spikes` | SpikesBehavior |
-| `turning_wheel` | TurningWheelBehavior |
-| `item_spawner` | (uses ItemSpawner) |
+| `bear_trap` | Trap that snaps shut |
+| `billboard` | Static billboard prop |
+| `door` | Openable door (carries `is_open`, `is_unlocked`, `is_gate`, `key`) |
+| `info` | Info display |
+| `lever` | Toggleable lever |
+| `marker` | Marker/waypoint |
+| `note` | Readable note |
+| `portal_room` | Portal-room prop |
+| `portal_room_crystal_stand` | Crystal stand variant |
+| `end_portal` | End-of-run portal |
+| `end_demo_portal` | Demo end portal |
+| `portcullis` | Portcullis gate |
+| `rotator` | Rotating prop |
+| `runestone` | Interactive runestone |
+| `shape_prop` | Default for destructibles |
+| `spell_trap` | Magic trap |
+| `spikes` | Spike trap |
+| `turning_wheel` | Crank/wheel |
+| `item_spawner` | Spawns items on a schedule |
 
 ---
 
-## projectiles/*.json (Projectile)
+## projectiles/*.json
 
 ```json
 {
@@ -559,7 +535,7 @@ For modding purposes, design around the confirmed-spawnable set.
 
 ---
 
-## modifiers/*.json (ItemModifier)
+## modifiers/*.json
 
 The "Sword of Burning +2" system.
 
@@ -582,11 +558,11 @@ The "Sword of Burning +2" system.
 }
 ```
 
-`operation` confirmed `add`. Likely also `multiply`, `set` (untested).
+`operation` accepts `add` (confirmed). `multiply` and `set` are likely but untested.
 
 ---
 
-## biomes/*.json (Biome2)
+## biomes/*.json
 
 ```json
 {
@@ -625,7 +601,7 @@ The "Sword of Burning +2" system.
 
 ---
 
-## themes/*.json (ThemeData)
+## themes/*.json
 
 UI restyling. Replaces panel/tooltip/minimap/bar sprites and font.
 
@@ -659,7 +635,7 @@ How a theme actually gets applied to a world or world layer is not yet documente
 
 ---
 
-## worlds/*.json (WorldData3)
+## worlds/*.json
 
 ```json
 {
@@ -799,7 +775,7 @@ This pattern lets you control the exact sequence of rooms in a zone.
 
 ---
 
-## nodes/*.node (DataFile format)
+## nodes/*.node
 
 Custom text format produced by the in-game level editor. Each room is a
 list of typed objects. Five object types confirmed.
@@ -962,70 +938,62 @@ Confirmed values:
 
 ---
 
-## Status Effect Registry (12 hardcoded)
+## Status effect IDs
 
-Reference by `type` from projectile `status_effects[]`.
+Reference these by `type` from a projectile's `status_effects[]` array.
 
-| ID (probable) | Class | Effect |
-|---|---|---|
-| `aloe_vera` | AloeVeraStatusEffect | Healing-related |
-| `burning` | BurningStatusEffect | Fire damage over time |
-| `cikoria` | CikoriaStatusEffect | Mana regeneration |
-| `dragonroot` | DragonrootStatusEffect | Buff |
-| `foxglove` | FoxgloveStatusEffect | Buff/debuff |
-| `frozen` | FrozenStatusEffect | Freeze movement |
-| `poison` | PoisonStatusEffect | Poison DoT |
-| `poison_new` | PoisonStatusEffectNew | Newer poison variant |
-| `slimy` | SlimyStatusEffect | Slow movement |
-| `stats` | StatsStatusEffect | Generic stat modifier |
-| `web` | WebStatusEffect | Slow/stuck |
-| `wet` | WetStatusEffect | Lightning conductivity |
+| ID | Effect |
+|---|---|
+| `aloe_vera` | Healing-related |
+| `burning` | Fire damage over time |
+| `cikoria` | Mana regeneration |
+| `dragonroot` | Buff |
+| `foxglove` | Buff/debuff |
+| `frozen` | Freeze movement |
+| `poison` | Poison DoT |
+| `poison_new` | Newer poison variant |
+| `slimy` | Slow movement |
+| `stats` | Generic stat modifier |
+| `web` | Slow/stuck |
+| `wet` | Lightning conductivity |
 
 ---
 
-## Element Type Enum
+## Element types
 
-```
-none = 0, fire = 1, earth = 2, water = 3, air = 4, magma = 5, ice = 6
-```
+The damage types referenced in `elemental_weaknesses` and `elemental_resistances` on mobs:
 
-Six damage types. Used in `elemental_weaknesses` and
-`elemental_resistances` on mobs. Note: no `magic` or `light` element
-despite rune names.
+`fire`, `earth`, `water`, `air`, `magma`, `ice`
+
+Note that `magic` and `light` aren't elements, despite the rune names suggesting they might be. They're handled separately.
 
 ---
 
 ## Console commands (F11)
 
-Pasting may not work in the console UI. Type commands manually.
-Up arrow recalls history (last 100 commands persisted).
+Pasting may not work in the console UI; type commands manually. Up arrow recalls history (last 100 commands persisted).
 
-| Command (probable) | Class | Notes |
-|---|---|---|
-| `add_item <id> [<id>...]` | AddItemCommand | Spawns items into inventory |
-| `break_weapons` | BreakWeaponsCommand | Damages held/equipped weapons |
-| `collapse` | CollapseCommand | Triggers ceiling collapse |
-| `destroy_chunk_meshes` | DestroyChunkMeshesCommand | Debug |
-| `fly` | FlyCommand | Toggle flight (confirmed) |
-| `heal` | HealCommand | Restore health |
-| `kill_mobs` | KillMobsCommand | Kill all mobs |
-| `level_up` | LevelUpCommand | Gain a level |
-| `message <text>` | MessageCommand | On-screen message |
-| `play <sound>` | PlayCommand | Play sound |
-| `remove_floating_props` | RemoveFloatingPropsCommand | Cleanup |
-| `spawn <id>` | SpawnCommand | Generic spawn |
-| `spawn_mob <id>` | SpawnMobCommand | Spawn enemy (confirmed) |
-| `spawn_of_type <type>` | SpawnOfTypeCommand | Spawn by category |
-| `spawn_prop <id>` | SpawnPropCommand | Spawn prop |
-| `take_damage <amount>` | TakeDamageCommand | Damage player |
-| `teleport <x> <y> <z>` | TeleportCommand | Teleport player |
+| Command | Notes |
+|---|---|
+| `add_item <id> [<id>...]` | Spawns items into inventory |
+| `break_weapons` | Damages held/equipped weapons |
+| `collapse` | Triggers ceiling collapse |
+| `destroy_chunk_meshes` | Debug |
+| `fly` | Toggle flight |
+| `heal` | Restore health |
+| `kill_mobs` | Kill all mobs |
+| `level_up` | Gain a level |
+| `message <text>` | On-screen message |
+| `play <sound>` | Play sound |
+| `remove_floating_props` | Cleanup |
+| `spawn <id>` | Generic spawn |
+| `spawn_mob <id>` | Spawn enemy |
+| `spawn_of_type <type>` | Spawn by category |
+| `spawn_prop <id>` | Spawn prop |
+| `take_damage <amount>` | Damage player |
+| `teleport <x> <y> <z>` | Teleport player |
 
-No built-in `help` command. Empirical probing (`add_item <guess>`) is
-how to discover IDs.
-
-The console also has `EvaluateCustomCommand` and
-`EvaluateScript(string, target)` methods, suggesting custom command
-registration and script execution. Hooks unknown.
+There's no built-in `help` command. Probing IDs you suspect (e.g. `add_item my_guess`) is how to discover what's actually registered.
 
 ---
 
@@ -1051,7 +1019,7 @@ vines_ceiling_1, vines_ceiling_2, vines_ceiling_3,
 wooden_door_3
 ```
 
-### Items confirmed
+### Items
 ```
 silver_key (key),
 fire_rune, air_rune, missile_rune, explosive_rune (runes)
@@ -1122,10 +1090,7 @@ giant_dragonfly_1
 ## Tooling
 
 ### Required
-- **MagicaVoxel 0.99.7.1** (https://ephtracy.github.io). For `.vox`
-  models. The version matters: `.vox` files saved in newer or older
-  MagicaVoxel versions may fail to load. Confirmed by the dev as a
-  real-world issue. Mob animations use multi-frame `.vox` files.
+- **MagicaVoxel 0.99.7.1** (https://ephtracy.github.io). For `.vox` models. The version matters: `.vox` files saved in different MagicaVoxel versions can fail to load. Mob animations use multi-frame `.vox` files.
 - **Runehaven's in-game level editor** for `.node` files.
 - **Text editor** for JSON.
 
@@ -1135,11 +1100,10 @@ giant_dragonfly_1
 - **Aseprite** for sprite/9-slice work.
 - **Audacity** for `.wav` editing.
 
-### For deep modding (BepInEx)
-- **Cpp2IL** (https://github.com/SamboyCoding/Cpp2IL) for decompilation.
-  Already run, dummy DLL output available if needed.
-- **dnSpy** or **ILSpy** to browse decompiled assemblies.
+### For code modding (BepInEx)
 - **BepInEx 6 IL2CPP** for runtime patching.
+- **Cpp2IL** (https://github.com/SamboyCoding/Cpp2IL) for decompilation.
+- **dnSpy** or **ILSpy** to browse decompiled assemblies.
 
 ### Workspace layout
 
@@ -1159,18 +1123,20 @@ Worth setting during development.
 
 ---
 
-## Open questions
+## Questions for the community
 
-Things the doc can't yet resolve. Each can be answered empirically. Contributions welcome.
+Things that aren't yet confirmed and are worth verifying as people build:
 
-1. Whether the ~24 non-spawnable rune classes can still be referenced from item `runes[]` arrays. Test by adding one to a custom weapon and observing whether it functions.
-2. The full set of `ItemModifier.parameters[].operation` values. `add` is confirmed; `multiply` and `set` are likely.
-3. The full set of `shape` values for particle systems. `sphere` and `cone` are confirmed in vanilla files; `box` and `hemisphere` are likely.
-4. The full set of `simulation_space` values for particle systems. `world` is confirmed; `local` is likely.
+1. Whether the rune effects that didn't spawn from console can still be referenced from item `runes[]` arrays. Test by adding one to a custom weapon and seeing whether it fires.
+2. The full set of values for `ItemModifier.parameters[].operation`. `add` is confirmed; `multiply` and `set` are likely.
+3. The full set of `shape` values for particle systems. `sphere` and `cone` are confirmed; `box` and `hemisphere` are likely.
+4. The full set of `simulation_space` values. `world` is confirmed; `local` is likely.
 5. Whether mod-local `RuneSigns/` folders load, or only the top-level one.
-6. How a theme gets selected per world or per layer (not visible in the world or layer schemas).
-7. Whether `worlds[].layers[].zone[]` and `biomes[]` arrays pick one entry or merge them.
-8. The full set of zone action `type` values. `node` and `loop` are confirmed; others may exist.
+6. How a theme gets selected per world or per layer (not obviously visible in the world or layer schemas).
+7. Whether `worlds[].layers[].zone[]` and `biomes[]` arrays pick one entry per run or merge them.
+8. Zone action `type` values beyond `node` and `loop`.
 9. Built-in L-system commands beyond `loop` and `push`.
-10. Behavior-specific extensions for non-door props in `.node` files. Doors carry `is_open`, `is_unlocked`, `is_gate`, `key`. Other prop types likely have their own per-instance fields.
-11. The full vanilla mob `type` registry. `dragonfly` is the only confirmed example; the other 12 archetypes have classes but the JSON `type` strings haven't been matched 1:1.
+10. Per-instance fields for prop types beyond `door` in `.node` files. Doors carry `is_open`, `is_unlocked`, `is_gate`, `key`; other prop types probably have their own.
+11. Full vanilla mob `type` registry. `dragonfly` is the only confirmed pairing of JSON `type` to behavior; others haven't been matched 1:1.
+
+If you confirm any of these or find something else worth noting, contributions are welcome.
