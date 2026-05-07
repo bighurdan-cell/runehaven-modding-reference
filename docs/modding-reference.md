@@ -133,10 +133,10 @@ mod.json (manifest with optional path overrides)
     │       ├── tunnel_settings, stairs_*, place_runes
     │       └── layers[]
     │               │
-    │               ├── zone[] → zones/*.json
+    │               ├── zone[] (random pick per run) → zones/*.json
     │               │       │
     │               │       ├── axiom + rules (Lindenmayer)
-    │               │       └── actions[] (type: node | loop | push?)
+    │               │       └── actions[] (type: node | loop)
     │               │               ├── node_paths[] (folder OR file)
     │               │               └── hallway: { floor/wall/ceiling_material }
     │               │                       │
@@ -147,15 +147,15 @@ mod.json (manifest with optional path overrides)
     │               │                               ├── Connector (entrance/exit)
     │               │                               └── PlayerSpawnpoint
     │               │
-    │               ├── biomes[] → biomes/*.json (Biome2)
+    │               ├── biomes[] (random pick per run) → biomes/*.json
     │               │       └── prop_map, item_map, material_map, mobs
     │               └── mobs[] / ascension_mobs[] → mobs/*.json
     │
-    ├── items/*.json (Item, Rune subclass)
+    ├── items/*.json
     ├── projectiles/*.json
-    ├── modifiers/*.json (ItemModifier)
+    ├── modifiers/*.json
     ├── props/*.json
-    └── themes/*.json (ThemeData)
+    └── themes/*.json (UI restyling only)
 ```
 
 Loading order from `Game.cs`:
@@ -244,12 +244,6 @@ Full field set, drawn from the example mod and the decompiled `Item` class. Item
     "range": 2.5,
     "melee_attack_type": "swing",
     "projectile_source": { "x": 14.5, "y": 3.5, "z": 26 },
-
-    "loot_tier": 2,
-    "damage_tier": 1,
-    "range_tier": 1,
-    "speed_tier": 3,
-    "knockback_tier": 1,
 
     "fire_sound": "dagger_swing",
     "destruct_sound": "metal_weapon_break",
@@ -564,6 +558,8 @@ The "Sword of Burning +2" system.
 
 ## biomes/*.json
 
+Biomes control the per-zone visual and gameplay atmosphere: ambient lighting, fog, prop population, mob roster, and material substitution. They are the primary mechanism for making a zone feel distinct. To create a custom-themed area (e.g. a flooded ruin, an icy crypt, a sunlit garden), ship a custom biome and reference its ID from a world layer's `biomes[]` field.
+
 ```json
 {
     "id": "biome_example",
@@ -631,7 +627,9 @@ UI restyling. Replaces panel/tooltip/minimap/bar sprites and font.
 
 `*_border` is a 9-slice border definition (left, right, top, bottom in pixels). Sprite IDs reference either `sprites/<name>.png` in the same mod or vanilla sprites like `default_panel_sprite`.
 
-How a theme actually gets applied to a world or world layer is not yet documented. Worth verifying empirically.
+Themes restyle UI elements only (panels, tooltips, minimap, bars, font). They are not the layer that gives a zone its visual identity. For per-zone atmosphere (lighting, fog, palette, mob roster, prop population) use custom **biomes** referenced from a world layer's `biomes[]` field. See the biomes section below.
+
+How a theme gets activated as the current UI theme is not yet documented; likely a player setting or a code-level binding rather than a mod-data field.
 
 ---
 
@@ -659,6 +657,14 @@ How a theme actually gets applied to a world or world layer is not yet documente
     "layers": [ ... ]
 }
 ```
+
+### Layer arrays are randomization pools
+
+Each layer's `zone[]` array is treated as a pool from which the engine picks one zone at random per run. Confirmed by the dev. So a layer with `"zone": ["cave", "mine", "halls"]` will spawn one of those three each run, not all three combined. Layers with multiple zones are how you get run-to-run variety inside a single layer.
+
+The same applies to the `biomes[]` array: a biome is selected per layer per run rather than merging multiple biomes together.
+
+This shapes how to structure a multi-zone narrative modpack. If you want three connected zones to play in sequence (e.g. shallow → middle → deep), make them three layers of one world (one zone per layer). If you want one layer with three thematic variants the player might encounter, list all three in that layer's `zone[]` array.
 
 ---
 
@@ -730,13 +736,24 @@ features than `mod_example` showed.
 
 ### Zone action types
 
+The `type` field on an action determines how the L-system processes that symbol when it appears.
+
 | `type` | Notes |
 |---|---|
-| `node` | Pick a `.node` file from `node_paths`. Most common. |
+| `node` | Pick a `.node` file from `node_paths` and stage it for placement. Most common. |
 | `loop` | Closes a loop in the dungeon graph. Takes `loop_floor_material`. |
 
-The `push` symbol that appears in axioms is likely a built-in
-L-system stack command, not a custom action. Not seen as an action `type`.
+### Built-in L-system commands
+
+A few symbols are built into the engine and don't need an entry in `actions[]` to function. They appear as bare symbols in the axiom.
+
+| Symbol | Behavior |
+|---|---|
+| `loop` | Used as a built-in command in some contexts; also definable as an action `type` for floor-material configuration on the loop closure. |
+| `push` | L-system stack command. Appears in vanilla axioms after the main symbol sequence; pushes the current state. |
+| `destroy_exits` | Destroys all exit connectors for nodes that are staged but not yet pushed. Useful when adding a group of nodes to the layer that should not be extended further. (Per Cikoria, "staged but not pushed" borrows git terminology: staged nodes are placed but not yet committed to the layer's connection graph.) |
+
+There may be additional built-in commands; this list reflects what's currently confirmed.
 
 ### Action fields
 
@@ -753,14 +770,11 @@ L-system stack command, not a custom action. Not seen as an action `type`.
 
 ### Rule fields
 
-`predecessor` (symbol to match), `successor` (space-separated expansion),
-optional `probability`. Probabilistic rules are non-exclusive (a symbol
-can match multiple rules and the engine chooses one weighted).
+`predecessor` (symbol to match), `successor` (space-separated expansion), optional `probability`. Probabilistic rules are non-exclusive (a symbol can match multiple rules and the engine chooses one weighted).
 
 ### Custom action IDs
 
-Zones can use any symbol names, not just `entrance`/`intermediate`/`exit`.
-Example from `village.json`:
+Zones can use any symbol names, not just `entrance`/`intermediate`/`exit`. Example from `village.json`:
 
 ```json
 "axiom": "entrance part_1 part_2 part_3 exit loop push",
@@ -1132,11 +1146,11 @@ Things that aren't yet confirmed and are worth verifying as people build:
 3. The full set of `shape` values for particle systems. `sphere` and `cone` are confirmed; `box` and `hemisphere` are likely.
 4. The full set of `simulation_space` values. `world` is confirmed; `local` is likely.
 5. Whether mod-local `RuneSigns/` folders load, or only the top-level one.
-6. How a theme gets selected per world or per layer (not obviously visible in the world or layer schemas).
-7. Whether `worlds[].layers[].zone[]` and `biomes[]` arrays pick one entry per run or merge them.
+6. Whether the layer `biomes[]` array has the same "pick one per run" semantics as `zone[]`. (zone[] is confirmed; biomes[] is reasonable to assume but not directly confirmed.)
+7. Whether there are L-system built-in commands beyond `loop`, `push`, and `destroy_exits`.
 8. Zone action `type` values beyond `node` and `loop`.
-9. Built-in L-system commands beyond `loop` and `push`.
-10. Per-instance fields for prop types beyond `door` in `.node` files. Doors carry `is_open`, `is_unlocked`, `is_gate`, `key`; other prop types probably have their own.
-11. Full vanilla mob `type` registry. `dragonfly` is the only confirmed pairing of JSON `type` to behavior; others haven't been matched 1:1.
+9. Per-instance fields for prop types beyond `door` in `.node` files. Doors carry `is_open`, `is_unlocked`, `is_gate`, `key`; other prop types probably have their own.
+10. Full vanilla mob `type` registry. `dragonfly` is the only confirmed pairing of JSON `type` to behavior; others haven't been matched 1:1.
+11. How a UI theme gets activated as the current theme (likely a player setting or code-level binding rather than a per-world data field).
 
 If you confirm any of these or find something else worth noting, contributions are welcome.
